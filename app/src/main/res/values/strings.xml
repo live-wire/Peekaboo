@@ -3,5 +3,17 @@
 
     <string name="app_name">Peekaboo</string>
     <string name="title_activity_maps">Map</string>
+    <string name="title_activity_contact_display">ContactDisplayActivity</string>
+
+    <string name="title_section1">Share Location</string>
+    <string name="title_section2">Invite Friends</string>
+    <string name="title_section3">WooooHoo!</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_example">Search</string>
+
+    <string name="action_settings">Out of words!</string>
 
 </resources>
