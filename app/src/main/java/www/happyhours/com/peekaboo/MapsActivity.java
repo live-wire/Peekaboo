@@ -1,7 +1,10 @@
 package www.happyhours.com.peekaboo;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.location.Location;
+
+import com.google.android.gms.internal.la;
 import com.google.android.gms.location.LocationListener;
 import android.location.LocationManager;
 import android.os.AsyncTask;
@@ -24,7 +27,12 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -45,6 +53,11 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+/*
+Date date = formatter.parse(toParse); // You will need try/catch around this
+        long millis = date.getTime();
+        long time= System.currentTimeMillis();
+        */
 
 public class MapsActivity extends FragmentActivity implements GoogleApiClient.ConnectionCallbacks,GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
@@ -53,6 +66,9 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     private LocationRequest mLocationRequest;
     public Boolean mRequestingLocationUpdates;
     public Location mCurrentLocation;
+    public String mResponse;
+    public Double addLat;
+    ArrayList<LatLng> mPoints;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -69,6 +85,8 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
                 .setInterval(10000)        // 10 seconds, in milliseconds
                 .setFastestInterval(5000); // 1 second, in milliseconds
+        addLat = 0.1;
+        mPoints = new ArrayList<LatLng>();
     }
 
     @Override
@@ -238,7 +256,6 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             mMap.addMarker(options);
             mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
             mMap.animateCamera(zoom);
-            Toast.makeText(getApplicationContext(),"Yallah",Toast.LENGTH_SHORT).show();
         }
 
         @Override
@@ -250,19 +267,17 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             final double currentLongitude = mCurrentLocation.getLongitude();
             HttpClient httpclient = new DefaultHttpClient();
 
-            HttpPost httppost = new HttpPost("http://ed42c8d8.ngrok.io");
+            HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
 
             try {
                 // Add your data
                 Map<String, String> comment = new HashMap<String, String>();
                 comment.put("Latitude", String.valueOf(currentLatitude));
                 comment.put("Longitude", String.valueOf(currentLongitude));
-                comment.put("BusNumber","KA-03-2929");
-                comment.put("BusName","KIA6");
-                comment.put("Contact","9945630500");
+                comment.put("Username","batheja.dhruv");
                 comment.put("LastUpdated",formatted);
                 Map<String,Object> req = new HashMap<String, Object>();
-                req.put("RequestType","AddressUpdate");
+                req.put("RequestType","LocationUpdate");
                 req.put("Request",comment);
                 String json = new GsonBuilder().create().toJson(req, Map.class);
                 httppost.setEntity(new StringEntity(json));
@@ -271,6 +286,22 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 HttpResponse response = httpclient.execute(httppost);
                 HttpEntity httpEntity = response.getEntity();
                 String responseString = EntityUtils.toString(httpEntity);
+                mResponse = responseString;
+                /*Map<String, String> comment = new HashMap<String, String>();
+                comment.put("Username", "batheja.dhruv");
+                comment.put("Friend", "anand.kanav");
+                Map<String,Object> req = new HashMap<String, Object>();
+                req.put("RequestType","GetLocation");
+                req.put("Request",comment);
+                String json = new GsonBuilder().create().toJson(req, Map.class);
+                httppost.setEntity(new StringEntity(json));
+
+                // Execute HTTP Post Request
+                HttpResponse response = httpclient.execute(httppost);
+                HttpEntity httpEntity = response.getEntity();
+                String responseString = EntityUtils.toString(httpEntity);
+                mResponse = responseString;*/
+
 
             } catch (ClientProtocolException e) {
                 // TODO Auto-generated catch block
@@ -278,8 +309,62 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 // TODO Auto-generated catch block
             }
 
-            return null;
+            return mResponse;
         }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+
+            /*JsonElement jelement = new JsonParser().parse(s);
+            JsonObject jobject = jelement.getAsJsonObject();
+            String jobject2;
+            jobject2 = jobject.get("ResponseType").toString();
+            String name = "",time = "",lati = "",longi = "";
+            jobject2 = jobject2.replaceAll("\"", "");
+
+            if(jobject2.equals("GetLocation"))
+            {
+                jobject = jobject.getAsJsonObject("Response");
+                if(jobject !=  null)
+                {
+                    name = jobject.get("Friend").toString();
+                    name = name.replaceAll("\"", "");
+                    time = jobject.get("LastUpdated").toString();
+                    time = time.replaceAll("\"", "");
+                    lati = jobject.get("Latitude").toString();
+                    lati = lati.replaceAll("\"", "");
+                    longi = jobject.get("Longitude").toString();
+                    longi = longi.replaceAll("\"", "");
+
+                }
+            }
+
+
+            double currentLatitude = Double.valueOf(lati);
+            final double currLatitude = currentLatitude + addLat;
+            double currentLongitude = Double.valueOf(longi);
+            final double currLongitude = currentLongitude + addLat;
+            LatLng latLng = new LatLng(currLatitude, currentLongitude);
+            mPoints.add(latLng);
+            mMap.clear();
+            MarkerOptions options = new MarkerOptions()
+                    .position(latLng)
+                    .title(name+" is here!")
+                    .snippet("Last Updated:" + time);
+            CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
+            mMap.addMarker(options);
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+            mMap.animateCamera(zoom);
+            addLat+=addLat;
+            PolylineOptions lineOptions = new PolylineOptions();
+            lineOptions.addAll(mPoints);
+            mMap.addPolyline(lineOptions.width(6).color(Color.MAGENTA).geodesic(true));*/
+//{"Response":{"Friend":"kanand","Latitude":"12.9353794","Longitude":"77.6944919","LastUpdated":"23/05/2015 18:38:07"},"ResponseType":"GetLocation"}
+
+        }
+
+
     }
 
 }
