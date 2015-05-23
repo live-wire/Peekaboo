@@ -1,10 +1,12 @@
 package www.happyhours.com.peekaboo;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.location.Location;
 
-import com.google.android.gms.internal.la;
 import com.google.android.gms.location.LocationListener;
 import android.location.LocationManager;
 import android.os.AsyncTask;
@@ -12,7 +14,9 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.util.Log;
+import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -25,7 +29,9 @@ import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.gson.GsonBuilder;
@@ -69,6 +75,9 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     public String mResponse;
     public Double addLat;
     ArrayList<LatLng> mPoints;
+    Marker mLastMarkerSelf;
+    Marker mLastMarkerFriend;
+    public String mFriendName;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -87,13 +96,32 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 .setFastestInterval(5000); // 1 second, in milliseconds
         addLat = 0.1;
         mPoints = new ArrayList<LatLng>();
+         Button b = (Button) findViewById(R.id.Refresh);
+        b.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mRequestingLocationUpdates = true;
+                mGoogleApiClient.connect();
+                startLocationUpdates();
+                UpdateFriend updateFriend = new UpdateFriend();
+
+                updateFriend.execute();
+
+            }
+        });
+        mFriendName = getIntent().getStringExtra("userName");
+
     }
+
 
     @Override
     public void onConnected(Bundle connectionHint) {
 
         if(mRequestingLocationUpdates)
-        {startLocationUpdates();
+        {
+            if(!mGoogleApiClient.isConnected())
+                mGoogleApiClient.connect();
+            startLocationUpdates();
         }
         //     Location mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
         //           mGoogleApiClient);
@@ -105,60 +133,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 mGoogleApiClient, mLocationRequest, this);
     }
 
-    //    public void handleNewLocation(Location mLastLocation)
-//    {
-//        SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-//        Date date = new Date(mLastLocation.getTime());
-//        final String formatted = format.format(date);
-//        final double currentLatitude = mLastLocation.getLatitude();
-//        final double currentLongitude = mLastLocation.getLongitude();
-//        LatLng latLng = new LatLng(currentLatitude, currentLongitude);
-//        mMap.clear();
-//        MarkerOptions options = new MarkerOptions()
-//                .position(latLng)
-//                .title("I am here!")
-//                .snippet("Last Updated:" + formatted);
-//        CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
-//        mMap.addMarker(options);
-//        mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-//        mMap.animateCamera(zoom);
-//        new Thread(){
-//
-//            public void run() {
-//                HttpClient httpclient = new DefaultHttpClient();
-//
-//                HttpPost httppost = new HttpPost("http://3cd66297.ngrok.io");
-//
-//                try {
-//                    // Add your data
-//                    Map<String, String> comment = new HashMap<String, String>();
-//                    comment.put("Latitude", String.valueOf(currentLatitude));
-//                    comment.put("Longitude", String.valueOf(currentLongitude));
-//                    comment.put("BusNumber","KA-03-2929");
-//                    comment.put("BusName","KIA6");
-//                    comment.put("Contact","9945630500");
-//                    comment.put("LastUpdated",formatted);
-//                    Map<String,Object> req = new HashMap<String, Object>();
-//                    req.put("RequestType","AddressUpdate");
-//                    req.put("Request",comment);
-//                    String json = new GsonBuilder().create().toJson(req, Map.class);
-//                    httppost.setEntity(new StringEntity(json));
-//
-//                    // Execute HTTP Post Request
-//                    HttpResponse response = httpclient.execute(httppost);
-//                    HttpEntity httpEntity = response.getEntity();
-//                    String responseString = EntityUtils.toString(httpEntity);
-//
-//                } catch (ClientProtocolException e) {
-//                    // TODO Auto-generated catch block
-//                } catch (IOException e) {
-//                    // TODO Auto-generated catch block
-//                }
-//                // Toast.makeText(getApplicationContext(),SimpleHttpPut.poster(),Toast.LENGTH_SHORT).show();
-//                //mLongitudeText.setText(String.valueOf(mLastLocation.getLongitude()));
-//            }
-//        }.start();
-//    }
+
     @Override
     public void onConnectionSuspended(int i) {
 
@@ -247,16 +222,44 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             final double currentLatitude = mCurrentLocation.getLatitude();
             final double currentLongitude = mCurrentLocation.getLongitude();
             LatLng latLng = new LatLng(currentLatitude, currentLongitude);
-            mMap.clear();
+            if(mLastMarkerSelf!=null)
+                mLastMarkerSelf.remove();
             MarkerOptions options = new MarkerOptions()
+
                     .position(latLng)
                     .title("I am here!")
-                    .snippet("Last Updated:" + formatted);
+                    .snippet("Last Updated:" + formatted)
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN))
+                    .anchor(0.5f, 1);
             CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
-            mMap.addMarker(options);
+            mLastMarkerSelf = mMap.addMarker(options);
             mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
             mMap.animateCamera(zoom);
+            mRequestingLocationUpdates = false;
+
+
         }
+
+        @Override
+        protected String doInBackground(String... params) {
+
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+
+
+
+        }
+
+
+    }
+
+    class UpdateFriend extends AsyncTask<String,Void,String>
+    {
 
         @Override
         protected String doInBackground(String... params) {
@@ -270,26 +273,10 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
 
             try {
-                // Add your data
-                Map<String, String> comment = new HashMap<String, String>();
-                comment.put("Latitude", String.valueOf(currentLatitude));
-                comment.put("Longitude", String.valueOf(currentLongitude));
-                comment.put("Username","batheja.dhruv");
-                comment.put("LastUpdated",formatted);
-                Map<String,Object> req = new HashMap<String, Object>();
-                req.put("RequestType","LocationUpdate");
-                req.put("Request",comment);
-                String json = new GsonBuilder().create().toJson(req, Map.class);
-                httppost.setEntity(new StringEntity(json));
 
-                // Execute HTTP Post Request
-                HttpResponse response = httpclient.execute(httppost);
-                HttpEntity httpEntity = response.getEntity();
-                String responseString = EntityUtils.toString(httpEntity);
-                mResponse = responseString;
-                /*Map<String, String> comment = new HashMap<String, String>();
+                Map<String, String> comment = new HashMap<String, String>();
                 comment.put("Username", "batheja.dhruv");
-                comment.put("Friend", "anand.kanav");
+                comment.put("Friend", mFriendName);
                 Map<String,Object> req = new HashMap<String, Object>();
                 req.put("RequestType","GetLocation");
                 req.put("Request",comment);
@@ -300,7 +287,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 HttpResponse response = httpclient.execute(httppost);
                 HttpEntity httpEntity = response.getEntity();
                 String responseString = EntityUtils.toString(httpEntity);
-                mResponse = responseString;*/
+                mResponse = responseString;
 
 
             } catch (ClientProtocolException e) {
@@ -316,7 +303,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
         protected void onPostExecute(String s) {
             super.onPostExecute(s);
 
-            /*JsonElement jelement = new JsonParser().parse(s);
+            JsonElement jelement = new JsonParser().parse(s);
             JsonObject jobject = jelement.getAsJsonObject();
             String jobject2;
             jobject2 = jobject.get("ResponseType").toString();
@@ -345,26 +332,31 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             final double currLatitude = currentLatitude + addLat;
             double currentLongitude = Double.valueOf(longi);
             final double currLongitude = currentLongitude + addLat;
-            LatLng latLng = new LatLng(currLatitude, currentLongitude);
+            LatLng latLng = new LatLng(currentLatitude, currentLongitude);
             mPoints.add(latLng);
-            mMap.clear();
+            if(mLastMarkerFriend!=null)
+            mLastMarkerFriend.remove();
             MarkerOptions options = new MarkerOptions()
                     .position(latLng)
                     .title(name+" is here!")
                     .snippet("Last Updated:" + time);
             CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
-            mMap.addMarker(options);
+            mLastMarkerFriend = mMap.addMarker(options);
             mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
             mMap.animateCamera(zoom);
             addLat+=addLat;
             PolylineOptions lineOptions = new PolylineOptions();
             lineOptions.addAll(mPoints);
-            mMap.addPolyline(lineOptions.width(6).color(Color.MAGENTA).geodesic(true));*/
+            mMap.addPolyline(lineOptions.width(6).color(Color.MAGENTA).geodesic(true));
 //{"Response":{"Friend":"kanand","Latitude":"12.9353794","Longitude":"77.6944919","LastUpdated":"23/05/2015 18:38:07"},"ResponseType":"GetLocation"}
+
 
         }
 
-
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
     }
 
 }
