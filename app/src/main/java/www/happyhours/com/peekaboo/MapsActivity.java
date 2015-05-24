@@ -73,11 +73,13 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     public Boolean mRequestingLocationUpdates;
     public Location mCurrentLocation;
     public String mResponse;
-    public Double addLat;
+    public int addLat;
     ArrayList<LatLng> mPoints;
-    Marker mLastMarkerSelf;
-    Marker mLastMarkerFriend;
+    public Marker mLastMarkerSelf;
+    public Marker mLastMarkerFriend;
+    public Marker[] mLastMarkerFriendArray;
     public String mFriendName;
+    public String requestType;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -94,7 +96,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
                 .setInterval(10000)        // 10 seconds, in milliseconds
                 .setFastestInterval(5000); // 1 second, in milliseconds
-        addLat = 0.1;
+        addLat = 0;
         mPoints = new ArrayList<LatLng>();
          Button b = (Button) findViewById(R.id.Refresh);
         b.setOnClickListener(new View.OnClickListener() {
@@ -103,13 +105,30 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 mRequestingLocationUpdates = true;
                 mGoogleApiClient.connect();
                 startLocationUpdates();
-                UpdateFriend updateFriend = new UpdateFriend();
 
-                updateFriend.execute();
+                if(requestType.equals("0")){
+                    UpdateFriend updateFriend = new UpdateFriend();
+                    updateFriend.execute();}
+                else if(requestType.equals("1"))
+                {
+                    addLat = 0;
+                    DisplayAllFriends displayAllFriends = new DisplayAllFriends();
+                    displayAllFriends.execute();
+                }
 
             }
         });
         mFriendName = getIntent().getStringExtra("userName");
+        requestType = getIntent().getStringExtra("isShowAll");
+        if(requestType.equals("0")){
+                UpdateFriend updateFriend = new UpdateFriend();
+        updateFriend.execute();}
+        else if(requestType.equals("1"))
+        {
+
+            DisplayAllFriends displayAllFriends = new DisplayAllFriends();
+            displayAllFriends.execute();
+        }
 
     }
 
@@ -329,9 +348,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
 
             double currentLatitude = Double.valueOf(lati);
-            final double currLatitude = currentLatitude + addLat;
             double currentLongitude = Double.valueOf(longi);
-            final double currLongitude = currentLongitude + addLat;
             LatLng latLng = new LatLng(currentLatitude, currentLongitude);
             mPoints.add(latLng);
             if(mLastMarkerFriend!=null)
@@ -344,10 +361,111 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             mLastMarkerFriend = mMap.addMarker(options);
             mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
             mMap.animateCamera(zoom);
-            addLat+=addLat;
             PolylineOptions lineOptions = new PolylineOptions();
             lineOptions.addAll(mPoints);
             mMap.addPolyline(lineOptions.width(6).color(Color.MAGENTA).geodesic(true));
+//{"Response":{"Friend":"kanand","Latitude":"12.9353794","Longitude":"77.6944919","LastUpdated":"23/05/2015 18:38:07"},"ResponseType":"GetLocation"}
+
+
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+        }
+    }
+
+    class DisplayAllFriends extends AsyncTask<String,Void,String>
+    {
+
+        @Override
+        protected String doInBackground(String... params) {
+            SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+            Date date = new Date(mCurrentLocation.getTime());
+            final String formatted = format.format(date);
+            final double currentLatitude = mCurrentLocation.getLatitude();
+            final double currentLongitude = mCurrentLocation.getLongitude();
+            HttpClient httpclient = new DefaultHttpClient();
+
+            HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
+
+            try {
+
+                Map<String, String> comment = new HashMap<String, String>();
+                comment.put("Username", "batheja.dhruv");
+                Map<String,Object> req = new HashMap<String, Object>();
+                req.put("RequestType","TrackAll");
+                req.put("Request",comment);
+                String json = new GsonBuilder().create().toJson(req, Map.class);
+                httppost.setEntity(new StringEntity(json));
+
+                // Execute HTTP Post Request
+                HttpResponse response = httpclient.execute(httppost);
+                HttpEntity httpEntity = response.getEntity();
+                String responseString = EntityUtils.toString(httpEntity);
+                mResponse = responseString;
+
+
+            } catch (ClientProtocolException e) {
+                // TODO Auto-generated catch block
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+            }
+
+            return mResponse;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+
+            JsonElement jelement = new JsonParser().parse(s);
+            JsonObject jobject = jelement.getAsJsonObject();
+            String jobject2;
+            jobject2 = jobject.get("ResponseType").toString();
+            String fname = "",lname = "",time = "",lati = "",longi = "";
+            jobject2 = jobject2.replaceAll("\"", "");
+            JsonArray jarray;
+            if(jobject2.equals("TrackAll"))
+            {
+                jobject = jobject.getAsJsonObject("Response");
+                if(jobject !=  null)
+                {
+                    jarray = jobject.getAsJsonArray("Friends");
+                    for (int i = 0; i < jarray.size() ; i++) {
+
+
+                    fname = jobject.get("FirstName").toString();
+                    fname = fname.replaceAll("\"", "");
+                    lname = jobject.get("LastName").toString();
+                    lname = lname.replaceAll("\"", "");
+                    time = jobject.get("LastUpdated").toString();
+                    time = time.replaceAll("\"", "");
+                    lati = jobject.get("Latitude").toString();
+                    lati = lati.replaceAll("\"", "");
+                    longi = jobject.get("Longitude").toString();
+                    longi = longi.replaceAll("\"", "");
+                    double currentLatitude = Double.valueOf(lati);
+                    double currentLongitude = Double.valueOf(longi);
+                    LatLng latLng = new LatLng(currentLatitude, currentLongitude);
+                    mPoints.add(latLng);
+                    if(mLastMarkerFriendArray[addLat]!=null)
+                        mLastMarkerFriend.remove();
+                    MarkerOptions options = new MarkerOptions()
+                            .position(latLng)
+                            .title(fname+" is here!")
+                            .snippet("Last Updated:" + time);
+                    CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
+                    mLastMarkerFriendArray[addLat] = mMap.addMarker(options);
+                    mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+                    mMap.animateCamera(zoom);
+                    addLat+=1;}
+
+                }
+            }
+
+
+
 //{"Response":{"Friend":"kanand","Latitude":"12.9353794","Longitude":"77.6944919","LastUpdated":"23/05/2015 18:38:07"},"ResponseType":"GetLocation"}
 
 
