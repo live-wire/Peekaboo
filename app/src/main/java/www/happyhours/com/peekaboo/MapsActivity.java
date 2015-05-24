@@ -113,6 +113,11 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 else if(requestType.equals("1"))
                 {
                     addLat = 0;
+                    for(int i = 0; i < mLastMarkerFriendArray.size();i++)
+                    {
+                        mLastMarkerFriendArray.get(i).remove();
+                    }
+                    mLastMarkerFriendArray.clear();
                     DisplayAllFriends displayAllFriends = new DisplayAllFriends();
                     displayAllFriends.execute();
                 }
@@ -126,7 +131,13 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
         updateFriend.execute();}
         else if(requestType.equals("1"))
         {
+            addLat = 0;
 
+            for(int i = 0; i < mLastMarkerFriendArray.size();i++)
+            {
+                mLastMarkerFriendArray.get(i).remove();
+            }
+            mLastMarkerFriendArray.clear();
             DisplayAllFriends displayAllFriends = new DisplayAllFriends();
             displayAllFriends.execute();
         }
@@ -442,8 +453,6 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                     double currentLongitude = Double.valueOf(longi);
                     LatLng latLng = new LatLng(currentLatitude, currentLongitude);
                     mPoints.add(latLng);
-                    if(mLastMarkerFriendArray!=null && !mLastMarkerFriendArray.isEmpty())
-                        mLastMarkerFriendArray.remove(i-1);
                     MarkerOptions options = new MarkerOptions()
                             .position(latLng)
                             .title(fname+" is here!")
