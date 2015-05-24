@@ -25,7 +25,7 @@
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
-        android:label="@string/app_name"
+        android:label="Peek-aa-booh"
         android:theme="@style/AppTheme" >
         <meta-data
             android:name="com.google.android.gms.version"
@@ -52,7 +52,7 @@
         <!--Contact Activity set as Laucher activity-->
         <activity
             android:name=".ContactDisplayActivity"
-            android:label="@string/title_activity_contact_display" >
+            android:label="Peek-aa-booh" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
