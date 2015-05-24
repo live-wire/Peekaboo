@@ -242,7 +242,7 @@ public class ContactDisplayActivity extends ActionBarActivity
                 try {
                     // Add your data
                     Map<String, String> comment = new HashMap<String, String>();
-                    comment.put("Username","anand.kanav");
+                    comment.put("Username","batheja.dhruv");
                     Map<String,Object> req = new HashMap<String, Object>();
                     req.put("RequestType","AppOpen");
                     req.put("Request",comment);

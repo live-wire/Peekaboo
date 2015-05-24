@@ -77,7 +77,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     ArrayList<LatLng> mPoints;
     public Marker mLastMarkerSelf;
     public Marker mLastMarkerFriend;
-    public Marker[] mLastMarkerFriendArray;
+    public ArrayList<Marker> mLastMarkerFriendArray;
     public String mFriendName;
     public String requestType;
     @Override
@@ -97,6 +97,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 .setInterval(10000)        // 10 seconds, in milliseconds
                 .setFastestInterval(5000); // 1 second, in milliseconds
         addLat = 0;
+        mLastMarkerFriendArray = new ArrayList<Marker>();
         mPoints = new ArrayList<LatLng>();
          Button b = (Button) findViewById(R.id.Refresh);
         b.setOnClickListener(new View.OnClickListener() {
@@ -282,11 +283,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
         @Override
         protected String doInBackground(String... params) {
-            SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-            Date date = new Date(mCurrentLocation.getTime());
-            final String formatted = format.format(date);
-            final double currentLatitude = mCurrentLocation.getLatitude();
-            final double currentLongitude = mCurrentLocation.getLongitude();
+
             HttpClient httpclient = new DefaultHttpClient();
 
             HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
@@ -294,7 +291,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             try {
 
                 Map<String, String> comment = new HashMap<String, String>();
-                comment.put("Username", "anand.kanav");
+                comment.put("Username", "batheja.dhruv");
                 comment.put("Friend", mFriendName);
                 Map<String,Object> req = new HashMap<String, Object>();
                 req.put("RequestType","GetLocation");
@@ -380,11 +377,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
         @Override
         protected String doInBackground(String... params) {
-            SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-            Date date = new Date(mCurrentLocation.getTime());
-            final String formatted = format.format(date);
-            final double currentLatitude = mCurrentLocation.getLatitude();
-            final double currentLongitude = mCurrentLocation.getLongitude();
+
             HttpClient httpclient = new DefaultHttpClient();
 
             HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
@@ -434,7 +427,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                     jarray = jobject.getAsJsonArray("Friends");
                     for (int i = 0; i < jarray.size() ; i++) {
 
-
+                    jobject = jarray.get(i).getAsJsonObject();
                     fname = jobject.get("FirstName").toString();
                     fname = fname.replaceAll("\"", "");
                     lname = jobject.get("LastName").toString();
@@ -449,14 +442,14 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                     double currentLongitude = Double.valueOf(longi);
                     LatLng latLng = new LatLng(currentLatitude, currentLongitude);
                     mPoints.add(latLng);
-                    if(mLastMarkerFriendArray[addLat]!=null)
-                        mLastMarkerFriend.remove();
+                    if(mLastMarkerFriendArray!=null && !mLastMarkerFriendArray.isEmpty())
+                        mLastMarkerFriendArray.remove(i-1);
                     MarkerOptions options = new MarkerOptions()
                             .position(latLng)
                             .title(fname+" is here!")
                             .snippet("Last Updated:" + time);
                     CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
-                    mLastMarkerFriendArray[addLat] = mMap.addMarker(options);
+                    mLastMarkerFriendArray.add(mMap.addMarker(options)) ;
                     mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
                     mMap.animateCamera(zoom);
                     addLat+=1;}
