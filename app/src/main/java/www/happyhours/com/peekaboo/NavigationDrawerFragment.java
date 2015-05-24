@@ -1,6 +1,7 @@
 package www.happyhours.com.peekaboo;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.res.AssetManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -33,7 +34,7 @@ import android.widget.Toast;
  * design guidelines</a> for a complete explanation of the behaviors implemented here.
  */
 public class NavigationDrawerFragment extends Fragment {
-
+    public String userName = "anand.kanav";
     /**
      * Remember the position of the selected item.
      */
@@ -82,6 +83,12 @@ public class NavigationDrawerFragment extends Fragment {
 
         // Select either the default item (0) or the last selected item.
         selectItem(mCurrentSelectedPosition);
+        ActionBar actionBar = getActionBar();
+        actionBar.setDisplayShowTitleEnabled(true);
+        actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
+        actionBar.setTitle(R.string.app_name);
+        actionBar.setBackgroundDrawable(new ColorDrawable(Color.parseColor("#FDEC2B")));
+
     }
 
     @Override
@@ -255,7 +262,13 @@ public class NavigationDrawerFragment extends Fragment {
         }
 
         if (item.getItemId() == R.id.action_example) {
-            Toast.makeText(getActivity(), "Example action.", Toast.LENGTH_SHORT).show();
+
+           // Toast.makeText(getActivity(), "ca.", Toast.LENGTH_SHORT).show();
+            Intent myintent=new Intent(this.getActivity(),MapsActivity.class);
+            myintent.putExtra("userName", userName);
+            myintent.putExtra("isShowAll", "1");
+            startActivity(myintent);
+
             return true;
         }
 
@@ -272,11 +285,7 @@ public class NavigationDrawerFragment extends Fragment {
         actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_STANDARD);
         actionBar.setTitle(R.string.app_name);
         actionBar.setBackgroundDrawable(new ColorDrawable(Color.parseColor("#FDEC2B")));
-      //  AssetManager am = this.getActivity().getAssets();
 
-
-      //  Typeface typeFace=Typeface.createFromAsset(am, "fonts/amaticRegular.ttf");
-      //  actionBar.setTypeface(typeFace);
     }
 
     private ActionBar getActionBar() {
