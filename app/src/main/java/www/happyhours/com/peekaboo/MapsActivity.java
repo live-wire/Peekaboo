@@ -275,7 +275,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             try {
 
                 Map<String, String> comment = new HashMap<String, String>();
-                comment.put("Username", "batheja.dhruv");
+                comment.put("Username", "anand.kanav");
                 comment.put("Friend", mFriendName);
                 Map<String,Object> req = new HashMap<String, Object>();
                 req.put("RequestType","GetLocation");

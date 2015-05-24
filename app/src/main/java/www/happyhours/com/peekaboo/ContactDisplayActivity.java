@@ -321,7 +321,9 @@ public class ContactDisplayActivity extends ActionBarActivity
 
                     final String item = (String) parent.getItemAtPosition(position);
                     String userName =  data.get(position).get("userName");
-                    Intent myintent=new Intent(abc.getActivity(),MapsActivity.class).putExtra("userName", userName);
+                    Intent myintent=new Intent(abc.getActivity(),MapsActivity.class);
+                    myintent.putExtra("userName", userName);
+                    myintent.putExtra("isShowAll", "0");
                     startActivity(myintent);
 
                 }
