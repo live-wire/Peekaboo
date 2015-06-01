@@ -9,9 +9,23 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="right|top"
-        android:text="Refresh"
         android:padding="10dp"
         android:layout_marginTop="20dp"
-        android:paddingRight="10dp"/>
+        android:paddingRight="10dp"
+        android:drawableLeft="@drawable/refresh"
+        android:background="@drawable/buttonstyle"
+        />
+
+    <ToggleButton
+        android:id="@+id/togglebutton"
+        android:textOff="Road-Route to you OFF"
+        android:textOn="Road-Route to you ON"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:layout_gravity="left|top"
+        android:padding="10dp"
+        android:paddingLeft="10dp"
+        />
 
 </fragment>

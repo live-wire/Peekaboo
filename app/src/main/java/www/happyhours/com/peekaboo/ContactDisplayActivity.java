@@ -3,6 +3,7 @@ package www.happyhours.com.peekaboo;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.location.Location;
 import android.os.AsyncTask;
 import android.support.v7.app.ActionBarActivity;
@@ -12,6 +13,7 @@ import android.support.v4.app.FragmentManager;
 import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -27,6 +29,7 @@ import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.gcm.GoogleCloudMessaging;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
@@ -58,6 +61,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class ContactDisplayActivity extends ActionBarActivity
@@ -82,6 +86,14 @@ public class ContactDisplayActivity extends ActionBarActivity
     public String mResponse;
     public Double addLat;
     public ArrayList<LatLng> mPoints;
+
+    public TextView mDisplay;
+    public GoogleCloudMessaging gcm;
+    public AtomicInteger msgId = new AtomicInteger();
+    public SharedPreferences prefs;
+    public Context context;
+    public String regid;
+
     @Override
     public void onConnected(Bundle connectionHint) {
 
@@ -90,8 +102,7 @@ public class ContactDisplayActivity extends ActionBarActivity
             startLocationUpdates();
         }
 
-        //     Location mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
-        //           mGoogleApiClient);
+
 
     }
 
@@ -139,8 +150,43 @@ public class ContactDisplayActivity extends ActionBarActivity
                 .setFastestInterval(5000); // 1 second, in milliseconds
         addLat = 0.1;
         mPoints = new ArrayList<LatLng>();
+        context = getApplicationContext();
+        mCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        /*Registration register = new Registration();
+        register.execute();*/
 
 
+
+
+    }
+    class Registration extends AsyncTask<String,Void,String> {
+
+        @Override
+        protected String doInBackground(String... params) {
+            String msg = "";
+            try {
+                if (gcm == null) {
+                    gcm = GoogleCloudMessaging.getInstance(context);
+                }
+                regid = gcm.register("214619967549");
+                msg = "Device registered, registration ID=" + regid;
+
+            } catch (IOException ex) {
+                msg = "Error :" + ex.getMessage();
+                // If there is an error, don't just keep trying to register.
+                // Require the user to click a button again, or perform
+                // exponential back-off.
+            }
+            Log.i("Kaju",msg);
+            return msg;
+
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            Toast.makeText(context,s,Toast.LENGTH_SHORT);
+        }
     }
 
     @Override
@@ -206,9 +252,15 @@ public class ContactDisplayActivity extends ActionBarActivity
     @Override
     public void onLocationChanged(Location location) {
         mCurrentLocation = location;
+        if(mRequestingLocationUpdates){
         UpdateUI ui = new UpdateUI();
 
-        ui.execute();
+        ui.execute();}
+        else
+        {
+            LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        }
+
     }
 
     @Override
@@ -237,12 +289,12 @@ public class ContactDisplayActivity extends ActionBarActivity
                 SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
                 HttpClient httpclient = new DefaultHttpClient();
 
-                HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
+                HttpPost httppost = new HttpPost(Variables.serverHTTP);
 
                 try {
                     // Add your data
                     Map<String, String> comment = new HashMap<String, String>();
-                    comment.put("Username","batheja.dhruv");
+                    comment.put("Username",Variables.userLoggedIn);
                     Map<String,Object> req = new HashMap<String, Object>();
                     req.put("RequestType","AppOpen");
                     req.put("Request",comment);
@@ -269,68 +321,68 @@ public class ContactDisplayActivity extends ActionBarActivity
             @Override
             protected void onPostExecute(String s) {
 
-            super.onPostExecute(s);
-            //s = "{\"ResponseType\":\"AppOpen\",\"Response\":{\"Friends\":[{\"Username\":\"anand.kanav\",\"FirstName\":\"Kanav\",\"LastName\":\"Anand\",\"LocationSharedTill\":\"23/05/2015 17:58:56\"}]}}";System.out.println(s);
+                super.onPostExecute(s);
+                //s = "{\"ResponseType\"unsure emoticon"AppOpen\",\"Response\":{\"Friends\":[{\"Username\"unsure emoticon"anand.kanav\",\"FirstName\"unsure emoticon"Kanav\",\"LastName\"unsure emoticon"Anand\",\"LocationSharedTill\"unsure emoticon"23/05/2015 17:58:56\"}]}}";System.out.println(s);
 
-            JsonElement jelement = new JsonParser().parse(s);
-            JsonObject jobject = jelement.getAsJsonObject();
-            String requestType;
-            requestType = jobject.get("ResponseType").toString();
-            String name = "",time = "",lati = "",longi = "";
-            requestType = requestType.replaceAll("\"", "");
-            final ArrayList<String> list = new ArrayList<String>();
+                JsonElement jelement = new JsonParser().parse(s);
+                JsonObject jobject = jelement.getAsJsonObject();
+                String requestType;
+                requestType = jobject.get("ResponseType").toString();
+                String name = "",time = "",lati = "",longi = "";
+                requestType = requestType.replaceAll("\"", "");
+                final ArrayList<String> list = new ArrayList<String>();
 
-            final List<HashMap<String, String>> data = new ArrayList<HashMap<String, String>>();
+                final List<HashMap<String, String>> data = new ArrayList<HashMap<String, String>>();
 
                 if(requestType.equals("AppOpen"))
-            {
-                jobject = jobject.getAsJsonObject("Response");
-                if(jobject !=  null)
                 {
-                    JsonArray friendsArray = jobject.getAsJsonArray("Friends");
+                    jobject = jobject.getAsJsonObject("Response");
+                    if(jobject !=  null)
+                    {
+                        JsonArray friendsArray = jobject.getAsJsonArray("Friends");
 
 
 
-                    for (int i = 0; i < friendsArray.size() ; i++) {
-                        HashMap<String, String> friendsMap = new HashMap<String, String>();
-                        JsonObject friend = friendsArray.get(i).getAsJsonObject();
-                        friendsMap.put("userName",friend.get("Username").toString().replaceAll("\"", "") );
-                        friendsMap.put("fname", friend.get("FirstName").toString().replaceAll("\"", ""));
-                        friendsMap.put("lname", friend.get("LastName").toString().replaceAll("\"", ""));
-                        friendsMap.put("timestamp", friend.get("LocationSharedTill").toString().replaceAll("\"", ""));
-                        data.add(friendsMap);
-                     //   friendsMap.clear();
-                     //   friendsMap = new HashMap<String,String>();
+                        for (int i = 0; i < friendsArray.size() ; i++) {
+                            HashMap<String, String> friendsMap = new HashMap<String, String>();
+                            JsonObject friend = friendsArray.get(i).getAsJsonObject();
+                            friendsMap.put("userName",friend.get("Username").toString().replaceAll("\"", "") );
+                            friendsMap.put("fname", friend.get("FirstName").toString().replaceAll("\"", ""));
+                            friendsMap.put("lname", friend.get("LastName").toString().replaceAll("\"", ""));
+                            friendsMap.put("timestamp", friend.get("LocationSharedTill").toString().replaceAll("\"", ""));
+                            data.add(friendsMap);
+                            //   friendsMap.clear();
+                            //   friendsMap = new HashMap<String,String>();
 
-                        list.add(friend.get("FirstName").toString().replaceAll("\"", "")+" "+friend.get("LastName").toString().replaceAll("\"", ""));
+                            list.add(friend.get("FirstName").toString().replaceAll("\"", "")+" "+friend.get("LastName").toString().replaceAll("\"", ""));
+
+                        }
+
 
                     }
-
-
                 }
-            }
+                if (abc.getActivity()!= null) {
+                    final CustomAdapter adapter = new CustomAdapter(abc.getActivity(), list);
+                    friendsList.setAdapter(adapter);
+                    friendsList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
 
-            final CustomAdapter adapter = new CustomAdapter(abc.getActivity(),list);
-            friendsList.setAdapter(adapter);
-            friendsList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                        @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+                        @Override
+                        public void onItemClick(AdapterView<?> parent, final View view,
+                                                final int position, long id) {
 
-                @TargetApi(Build.VERSION_CODES.JELLY_BEAN)
-                @Override
-                public void onItemClick(AdapterView<?> parent, final View view,
-                                        final int position, long id) {
+                            final String item = (String) parent.getItemAtPosition(position);
+                            String userName = data.get(position).get("userName");
+                            Intent myintent = new Intent(abc.getActivity(), MapsActivity.class);
+                            myintent.putExtra("userName", userName);
+                            myintent.putExtra("isShowAll", "0");
+                            startActivity(myintent);
 
-                    final String item = (String) parent.getItemAtPosition(position);
-                    String userName =  data.get(position).get("userName");
-                    Intent myintent=new Intent(abc.getActivity(),MapsActivity.class);
-                    myintent.putExtra("userName", userName);
-                    myintent.putExtra("isShowAll", "0");
-                    startActivity(myintent);
+                        }
 
+                    });
+                    //{"Response":{"Friend":"kanand","Latitude":"12.9353794","Longitude":"77.6944919","LastUpdated":"23/05/2015 18:38:07"},"ResponseType":"GetLocation"}
                 }
-
-            });
-                //{"Response":{"Friend":"kanand","Latitude":"12.9353794","Longitude":"77.6944919","LastUpdated":"23/05/2015 18:38:07"},"ResponseType":"GetLocation"}
-
             }
 
 
@@ -401,14 +453,14 @@ public class ContactDisplayActivity extends ActionBarActivity
             final double currentLongitude = mCurrentLocation.getLongitude();
             HttpClient httpclient = new DefaultHttpClient();
 
-            HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
+            HttpPost httppost = new HttpPost(Variables.serverHTTP);
 
             try {
                 // Add your data
                 Map<String, String> comment = new HashMap<String, String>();
                 comment.put("Latitude", String.valueOf(currentLatitude));
                 comment.put("Longitude", String.valueOf(currentLongitude));
-                comment.put("Username","batheja.dhruv");
+                comment.put("Username",Variables.userLoggedIn);
                 comment.put("LastUpdated",formatted);
                 Map<String,Object> req = new HashMap<String, Object>();
                 req.put("RequestType","LocationUpdate");
@@ -436,6 +488,7 @@ public class ContactDisplayActivity extends ActionBarActivity
         @Override
         protected void onPostExecute(String s) {
             super.onPostExecute(s);
+            mRequestingLocationUpdates = false;
 
         }
 

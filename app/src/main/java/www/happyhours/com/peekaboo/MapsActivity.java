@@ -1,5 +1,8 @@
 package www.happyhours.com.peekaboo;
 
+import www.happyhours.com.peekaboo.*;
+import android.animation.ObjectAnimator;
+import android.animation.TypeEvaluator;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -14,10 +17,13 @@ import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 import android.util.Log;
+import android.util.Property;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.Toast;
+import android.widget.ToggleButton;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
@@ -31,8 +37,10 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -51,14 +59,24 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
+import org.json.JSONException;
+import org.json.JSONObject;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 /*
 Date date = formatter.parse(toParse); // You will need try/catch around this
         long millis = date.getTime();
@@ -71,6 +89,9 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     public GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
     public Boolean mRequestingLocationUpdates;
+
+    public LatLng mFriendLoc;
+    public LatLng mSelfLoc;
     public Location mCurrentLocation;
     public String mResponse;
     public int addLat;
@@ -80,6 +101,10 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     public ArrayList<Marker> mLastMarkerFriendArray;
     public String mFriendName;
     public String requestType;
+    public ScheduledExecutorService scheduleTaskExecutor;
+    public ScheduledExecutorService scheduleTaskExecutor2;
+    public Polyline polylineRoad;
+    public LatLngInterpolator latLngInterpolator;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -97,6 +122,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
                 .setInterval(10000)        // 10 seconds, in milliseconds
                 .setFastestInterval(5000); // 1 second, in milliseconds
         addLat = 0;
+
         mLastMarkerFriendArray = new ArrayList<Marker>();
         mPoints = new ArrayList<LatLng>();
          Button b = (Button) findViewById(R.id.Refresh);
@@ -105,13 +131,18 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             public void onClick(View v) {
                 mRequestingLocationUpdates = true;
                 mGoogleApiClient.connect();
-                startLocationUpdates();
+                //startLocationUpdates();
 
                 if(requestType.equals("0")){
+                    findViewById(R.id.togglebutton).setVisibility(View.VISIBLE);
                     UpdateFriend updateFriend = new UpdateFriend();
-                    updateFriend.execute();}
+                    updateFriend.execute();
+
+
+                }
                 else if(requestType.equals("1"))
                 {
+                    findViewById(R.id.togglebutton).setVisibility(View.INVISIBLE);
                     addLat = 0;
                     for(int i = 0; i < mLastMarkerFriendArray.size();i++)
                     {
@@ -124,13 +155,37 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
             }
         });
+
+        ToggleButton toggleButton = (ToggleButton)findViewById(R.id.togglebutton);
+        toggleButton.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                if (isChecked) {
+                    String url = getDirectionsUrl(mFriendLoc , mSelfLoc);
+
+                    DownloadTask downloadTask = new DownloadTask();
+
+                    downloadTask.execute(url);
+                    // The toggle is enabled
+                } else {
+
+                    UpdateFriend updateFriend = new UpdateFriend();
+                    updateFriend.execute();
+                    if(polylineRoad!=null)
+                        polylineRoad.remove();
+                    // The toggle is disabled
+                }
+            }
+        });
+        latLngInterpolator = new LatLngInterpolator();
         mFriendName = getIntent().getStringExtra("userName");
         requestType = getIntent().getStringExtra("isShowAll");
         if(requestType.equals("0")){
+            findViewById(R.id.togglebutton).setVisibility(View.VISIBLE);
                 UpdateFriend updateFriend = new UpdateFriend();
         updateFriend.execute();}
         else if(requestType.equals("1"))
         {
+            findViewById(R.id.togglebutton).setVisibility(View.INVISIBLE);
             addLat = 0;
 
             for(int i = 0; i < mLastMarkerFriendArray.size();i++)
@@ -143,7 +198,18 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
         }
 
     }
-
+    static void animateMarkerToICS(Marker marker, LatLng finalPosition, final LatLngInterpolator latLngInterpolator) {
+        TypeEvaluator<LatLng> typeEvaluator = new TypeEvaluator<LatLng>() {
+            @Override
+            public LatLng evaluate(float fraction, LatLng startValue, LatLng endValue) {
+                return latLngInterpolator.interpolate(fraction, startValue, endValue);
+            }
+        };
+        Property<Marker, LatLng> property = Property.of(Marker.class, LatLng.class, "position");
+        ObjectAnimator animator = ObjectAnimator.ofObject(marker, property, typeEvaluator, finalPosition);
+        animator.setDuration(3000);
+        animator.start();
+    }
 
     @Override
     public void onConnected(Bundle connectionHint) {
@@ -183,28 +249,26 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     }
 
     @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (scheduleTaskExecutor2 != null)
+            scheduleTaskExecutor2.shutdownNow();
+        if (scheduleTaskExecutor != null)
+            scheduleTaskExecutor.shutdownNow();
+    }
+
+    @Override
     protected void onPause() {
         super.onPause();
+        if (scheduleTaskExecutor2 != null)
+            scheduleTaskExecutor2.shutdownNow();
+        if (scheduleTaskExecutor != null)
+            scheduleTaskExecutor.shutdownNow();
         //     if (mGoogleApiClient.isConnected()) {
         //       LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, (com.google.android.gms.location.LocationListener) this);
         //     mGoogleApiClient.disconnect();}
     }
 
-    /**
-     * Sets up the map if it is possible to do so (i.e., the Google Play services APK is correctly
-     * installed) and the map has not already been instantiated.. This will ensure that we only ever
-     * call {@link #setUpMap()} once when {@link #mMap} is not null.
-     * <p/>
-     * If it isn't installed {@link SupportMapFragment} (and
-     * {@link com.google.android.gms.maps.MapView MapView}) will show a prompt for the user to
-     * install/update the Google Play services APK on their device.
-     * <p/>
-     * A user can return to this FragmentActivity after following the prompt and correctly
-     * installing/updating/enabling the Google Play services. Since the FragmentActivity may not
-     * have been completely destroyed during this process (it is likely that it would only be
-     * stopped or paused), {@link #onCreate(Bundle)} may not be called again so we should call this
-     * method in {@link #onResume()} to guarantee that it will be called.
-     */
     private void setUpMapIfNeeded() {
         // Do a null check to confirm that we have not already instantiated the map.
         if (mMap == null) {
@@ -225,7 +289,7 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
      * This should only be called once and when we are sure that {@link #mMap} is not null.
      */
     private void setUpMap() {
-        mMap.addMarker(new MarkerOptions().position(new LatLng(0, 0)).title("Marker"));
+       // mMap.addMarker(new MarkerOptions().position(new LatLng(0, 0)).title("Marker"));
     }
 
     @Override
@@ -237,55 +301,27 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
     public void onLocationChanged(Location location) {
         //handleNewLocation(location);
         mCurrentLocation = location;
-        UpdateUI ui = new UpdateUI();
+        mSelfLoc = new LatLng(mCurrentLocation.getLatitude(),mCurrentLocation.getLongitude());
+        SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
+        Date date = new Date(mCurrentLocation.getTime());
+        final String formatted = format.format(date);
+        final double currentLatitude = mCurrentLocation.getLatitude();
+        final double currentLongitude = mCurrentLocation.getLongitude();
+        LatLng latLng = new LatLng(currentLatitude, currentLongitude);
+        if(mLastMarkerSelf!=null)
+            mLastMarkerSelf.remove();
+        MarkerOptions options = new MarkerOptions()
 
-        ui.execute();
-    }
-
-
-    class UpdateUI extends AsyncTask<String,Void,String>{
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            SimpleDateFormat format = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss");
-            Date date = new Date(mCurrentLocation.getTime());
-            final String formatted = format.format(date);
-            final double currentLatitude = mCurrentLocation.getLatitude();
-            final double currentLongitude = mCurrentLocation.getLongitude();
-            LatLng latLng = new LatLng(currentLatitude, currentLongitude);
-            if(mLastMarkerSelf!=null)
-                mLastMarkerSelf.remove();
-            MarkerOptions options = new MarkerOptions()
-
-                    .position(latLng)
-                    .title("I am here!")
-                    .snippet("Last Updated:" + formatted)
-                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN))
-                    .anchor(0.5f, 1);
-            CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
-            mLastMarkerSelf = mMap.addMarker(options);
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-            mMap.animateCamera(zoom);
-            mRequestingLocationUpdates = false;
-
-
-        }
-
-        @Override
-        protected String doInBackground(String... params) {
-
-
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(String s) {
-            super.onPostExecute(s);
-
-
-
-        }
-
+                .position(latLng)
+                .title("I am here!")
+                .snippet("Last Updated:" + formatted)
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_CYAN))
+                .anchor(0.5f, 1);
+        CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
+        mLastMarkerSelf = mMap.addMarker(options);
+        //mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
+        //mMap.animateCamera(zoom);
+        mRequestingLocationUpdates = false;
 
     }
 
@@ -297,12 +333,12 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
             HttpClient httpclient = new DefaultHttpClient();
 
-            HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
+            HttpPost httppost = new HttpPost(Variables.serverHTTP);
 
             try {
 
                 Map<String, String> comment = new HashMap<String, String>();
-                comment.put("Username", "batheja.dhruv");
+                comment.put("Username", Variables.userLoggedIn);
                 comment.put("Friend", mFriendName);
                 Map<String,Object> req = new HashMap<String, Object>();
                 req.put("RequestType","GetLocation");
@@ -358,20 +394,45 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             double currentLatitude = Double.valueOf(lati);
             double currentLongitude = Double.valueOf(longi);
             LatLng latLng = new LatLng(currentLatitude, currentLongitude);
+            mFriendLoc = latLng;
             mPoints.add(latLng);
-            if(mLastMarkerFriend!=null)
-            mLastMarkerFriend.remove();
+            //if(mLastMarkerFriend!=null)
+            //mLastMarkerFriend.remove();
             MarkerOptions options = new MarkerOptions()
                     .position(latLng)
                     .title(name+" is here!")
                     .snippet("Last Updated:" + time);
-            CameraUpdate zoom = CameraUpdateFactory.zoomTo(15);
+            CameraUpdate zoom = CameraUpdateFactory.zoomTo(10);
+            if(!(mLastMarkerFriend!=null))
             mLastMarkerFriend = mMap.addMarker(options);
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-            mMap.animateCamera(zoom);
+            animateMarkerToICS(mLastMarkerFriend,latLng,latLngInterpolator);
+            LatLngBounds.Builder builder = new LatLngBounds.Builder();
+
+            builder.include(mLastMarkerSelf.getPosition());
+            builder.include(mLastMarkerFriend.getPosition());
+
+            LatLngBounds bounds = builder.build();
+            int padding = 100; // offset from edges of the map in pixels
+            CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+            mMap.animateCamera(cu);
+            mLastMarkerFriend.showInfoWindow();
+
             PolylineOptions lineOptions = new PolylineOptions();
             lineOptions.addAll(mPoints);
-            mMap.addPolyline(lineOptions.width(6).color(Color.MAGENTA).geodesic(true));
+            mMap.addPolyline(lineOptions.width(10).color(Color.BLUE).geodesic(true));
+
+           /* scheduleTaskExecutor= Executors.newScheduledThreadPool(1);
+// This schedule a task to run every 20 seconds:
+            scheduleTaskExecutor.scheduleAtFixedRate(new Runnable() {
+                public void run() {
+                    // involved your call in UI thread:
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            Boolean a = findViewById(R.id.Refresh).performClick();
+                        }
+                    });
+                }
+            }, 0, 2, TimeUnit.SECONDS);*/
 //{"Response":{"Friend":"kanand","Latitude":"12.9353794","Longitude":"77.6944919","LastUpdated":"23/05/2015 18:38:07"},"ResponseType":"GetLocation"}
 
 
@@ -391,12 +452,12 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
             HttpClient httpclient = new DefaultHttpClient();
 
-            HttpPost httppost = new HttpPost("http://4b171156.ngrok.io");
+            HttpPost httppost = new HttpPost(Variables.serverHTTP);
 
             try {
 
                 Map<String, String> comment = new HashMap<String, String>();
-                comment.put("Username", "batheja.dhruv");
+                comment.put("Username", Variables.userLoggedIn);
                 Map<String,Object> req = new HashMap<String, Object>();
                 req.put("RequestType","TrackAll");
                 req.put("Request",comment);
@@ -465,10 +526,31 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
 
                 }
             }
-
+            /*scheduleTaskExecutor2= Executors.newScheduledThreadPool(1);
+            scheduleTaskExecutor2.scheduleAtFixedRate(new Runnable() {
+                public void run() {
+                    // involved your call in UI thread:
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            Boolean a = findViewById(R.id.Refresh).performClick();
+                        }
+                    });
+                }
+            }, 0, 2, TimeUnit.SECONDS);*/
 
 
 //{"Response":{"Friend":"kanand","Latitude":"12.9353794","Longitude":"77.6944919","LastUpdated":"23/05/2015 18:38:07"},"ResponseType":"GetLocation"}
+            LatLngBounds.Builder builder = new LatLngBounds.Builder();
+
+            builder.include(mLastMarkerSelf.getPosition());
+            for(int a =0;a<mLastMarkerFriendArray.size();a++) {
+                builder.include(mLastMarkerFriendArray.get(a).getPosition());
+            }
+            LatLngBounds bounds = builder.build();
+            int padding = 100; // offset from edges of the map in pixels
+            CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+            mMap.animateCamera(cu);
+
 
 
         }
@@ -478,5 +560,177 @@ public class MapsActivity extends FragmentActivity implements GoogleApiClient.Co
             super.onPreExecute();
         }
     }
+    /*String url = getDirectionsUrl(origin, dest);
+
+    DownloadTask downloadTask = new DownloadTask();
+
+    downloadTask.execute(url);*/
+    private String getDirectionsUrl(LatLng origin,LatLng dest){
+
+        // Origin of route
+        String str_origin = "origin="+origin.latitude+","+origin.longitude;
+
+        // Destination of route
+        String str_dest = "destination="+dest.latitude+","+dest.longitude;
+
+        // Sensor enabled
+        String sensor = "sensor=false";
+
+        // Building the parameters to the web service
+        String parameters = str_origin+"&"+str_dest+"&"+sensor;
+
+        // Output format
+        String output = "json";
+
+        String url = "https://maps.googleapis.com/maps/api/directions/"+output+"?"+parameters;
+
+        return url;
+    }
+
+    private String downloadUrl(String strUrl) throws IOException{
+        String data = "";
+        InputStream iStream = null;
+        HttpURLConnection urlConnection = null;
+        try{
+            URL url = new URL(strUrl);
+
+            urlConnection = (HttpURLConnection) url.openConnection();
+
+            // Connecting to url
+            urlConnection.connect();
+
+            // Reading data from url
+            iStream = urlConnection.getInputStream();
+
+            BufferedReader br = new BufferedReader(new InputStreamReader(iStream));
+
+            StringBuffer sb  = new StringBuffer();
+
+            String line = "";
+            while( ( line = br.readLine())  != null){
+                sb.append(line);
+            }
+
+            data = sb.toString();
+
+            br.close();
+
+        }catch(Exception e){
+            Log.d("Exception while downloading url", e.toString());
+        }finally{
+            iStream.close();
+            urlConnection.disconnect();
+        }
+        return data;
+    }
+
+    // Fetches data from url passed
+    public class DownloadTask extends AsyncTask<String, Void, String>{
+
+        // Downloading data in non-ui thread
+
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            findViewById(R.id.togglebutton).setEnabled(false);
+        }
+
+        @Override
+        protected String doInBackground(String... url) {
+
+            // For storing data from web service
+            String data = "";
+
+            try{
+                // Fetching the data from web service
+                data = downloadUrl(url[0]);
+            }catch(Exception e){
+                Log.d("Background Task",e.toString());
+            }
+            return data;
+        }
+
+        // Executes in UI thread, after the execution of
+        // doInBackground()
+        @Override
+        protected void onPostExecute(String result) {
+            super.onPostExecute(result);
+            JSONObject jObject = null;
+            List<List<HashMap<String, String>>> routes = null;
+            DirectionsJSONParser parser = new DirectionsJSONParser();
+            try {
+                jObject = new JSONObject(result);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            // Starts parsing data
+            routes = parser.parse(jObject);
+            /*ParserTask parserTask = new ParserTask();
+
+            // Invokes the thread for parsing the JSON data
+            parserTask.execute(result);*/
+
+            ArrayList<LatLng> points = null;
+            PolylineOptions lineOptions = null;
+            MarkerOptions markerOptions = new MarkerOptions();
+            String distance = "";
+            String duration = "";
+
+            if(routes.size()<1){
+            Toast.makeText(getBaseContext(), "No Points", Toast.LENGTH_SHORT).show();
+            return;
+            }
+            // Traversing through all the routes
+            for(int i=0;i<routes.size();i++){
+                points = new ArrayList<LatLng>();
+                lineOptions = new PolylineOptions();
+
+                // Fetching i-th route
+                List<HashMap<String, String>> path = routes.get(i);
+
+                // Fetching all the points in i-th route
+                for(int j=0;j<path.size();j++){
+                    HashMap<String,String> point = path.get(j);
+                    if(j==0){// Get distance from the list
+                       distance = (String)point.get("distance");
+                       continue;
+                        }else if(j==1){ // Get duration from the list
+                        duration = (String)point.get("duration");
+                        continue;
+                        }
+                    double lat = Double.parseDouble(point.get("lat"));
+                    double lng = Double.parseDouble(point.get("lng"));
+                    LatLng position = new LatLng(lat, lng);
+
+                    points.add(position);
+                }
+
+                // Adding all the points in the route to LineOptions
+                lineOptions.addAll(points);
+                lineOptions.width(4);
+                lineOptions.color(Color.RED);
+            }
+
+            // Drawing polyline in the Google Map for the i-th route
+            polylineRoad = mMap.addPolyline(lineOptions);
+            Toast.makeText(getBaseContext(),"Duration:"+duration+" Distance:"+distance,Toast.LENGTH_SHORT).show();
+            LatLngBounds.Builder builder = new LatLngBounds.Builder();
+
+                builder.include(mLastMarkerSelf.getPosition());
+                builder.include(mLastMarkerFriend.getPosition());
+
+            LatLngBounds bounds = builder.build();
+            int padding = 100; // offset from edges of the map in pixels
+            CameraUpdate cu = CameraUpdateFactory.newLatLngBounds(bounds, padding);
+            mMap.animateCamera(cu);
+            mLastMarkerFriend.showInfoWindow();
+
+            findViewById(R.id.togglebutton).setEnabled(true);
+        }
+    }
+
+
+
 
 }

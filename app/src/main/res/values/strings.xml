@@ -6,8 +6,8 @@
     <string name="title_activity_contact_display">ContactDisplayActivity</string>
 
     <string name="title_section1">Find Friends</string>
-    <string name="title_section2">Dummy 1!</string>
-    <string name="title_section3">Dummy 2!!</string>
+    <string name="title_section2">Invite Friends</string>
+    <string name="title_section3">Meet Someone</string>
 
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
