@@ -291,6 +291,11 @@ public class ContactDisplayActivity extends ActionBarActivity
         updateRegistration.execute();
     }
 
+    public void restartActivity()
+    {
+        finish();
+        startActivity(getIntent());
+    }
 
 
     @Override
@@ -600,7 +605,50 @@ public class ContactDisplayActivity extends ActionBarActivity
     }
 
 
+    public class UpdateRegistration extends AsyncTask<String,Void,String>{
 
+        @Override
+        protected String doInBackground(String... params) {
+
+            HttpClient httpclient = new DefaultHttpClient();
+
+            HttpPost httppost = new HttpPost(Variables.serverHTTP);
+
+            try {
+                // Add your data
+                Map<String, String> comment = new HashMap<String, String>();
+                comment.put("Username",Variables.userLoggedIn);
+                comment.put("RegId",Variables.gcmRegId);
+                Map<String,Object> req = new HashMap<String, Object>();
+                req.put("RequestType","UpdateRegId");
+                req.put("Request",comment);
+                String json = new GsonBuilder().create().toJson(req, Map.class);
+                httppost.setEntity(new StringEntity(json));
+
+                // Execute HTTP Post Request
+                HttpResponse response = httpclient.execute(httppost);
+                HttpEntity httpEntity = response.getEntity();
+                String responseString = EntityUtils.toString(httpEntity);
+
+
+
+
+            } catch (ClientProtocolException e) {
+                // TODO Auto-generated catch block
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+            }
+
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(String s) {
+            super.onPostExecute(s);
+            restartActivity();
+        }
+    }
 
 
 }
