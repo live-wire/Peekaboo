@@ -2,10 +2,14 @@ package www.happyhours.com.peekaboo;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.AsyncTask;
+import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBarActivity;
 import android.support.v7.app.ActionBar;
 import android.support.v4.app.Fragment;
@@ -92,8 +96,8 @@ public class ContactDisplayActivity extends ActionBarActivity
     public AtomicInteger msgId = new AtomicInteger();
     public SharedPreferences prefs;
     public Context context;
-    public String regid;
-
+    public SharedPreferences preferences;
+    public String regId;
     @Override
     public void onConnected(Bundle connectionHint) {
 
@@ -151,15 +155,96 @@ public class ContactDisplayActivity extends ActionBarActivity
         addLat = 0.1;
         mPoints = new ArrayList<LatLng>();
         context = getApplicationContext();
-        mCurrentLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
-        /*Registration register = new Registration();
-        register.execute();*/
+        mCurrentLocation = isGpsOn();
 
+        preferences = PreferenceManager.getDefaultSharedPreferences(this);
 
+        String gcmString = preferences.getString("GCM", "");
+        if(gcmString.equalsIgnoreCase(""))
+        {
+            Registration register = new Registration();
+            register.execute();
+        }
+        else
+        {
+            regId = gcmString;
+        }
 
 
     }
+
+    public Location isGpsOn()
+    {
+        boolean gps_enabled = false;
+        boolean network_enabled = false;
+
+        LocationManager lm = (LocationManager) context
+                .getSystemService(Context.LOCATION_SERVICE);
+
+        gps_enabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        network_enabled = lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+
+        Location net_loc = null, gps_loc = null, finalLoc = null;
+
+        if (gps_enabled)
+            gps_loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+        if (network_enabled)
+            net_loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+
+        if (gps_loc != null && net_loc != null) {
+
+            if (gps_loc.getAccuracy() >= net_loc.getAccuracy())
+                finalLoc = gps_loc;
+            else
+                finalLoc = net_loc;
+
+            // I used this just to get an idea (if both avail, its upto you which you want to take as I taken location with more accuracy)
+
+        } else {
+
+            if (gps_loc != null) {
+                finalLoc = gps_loc;
+            }
+            else if (net_loc != null) {
+                finalLoc = net_loc;
+            }
+
+            if(!(finalLoc !=null))
+            {
+                showGPSDisabledAlertToUser();
+            }
+        }
+
+        return finalLoc;
+    }
+
+    public void showGPSDisabledAlertToUser(){
+        AlertDialog.Builder alertDialogBuilder = new AlertDialog.Builder(this);
+        alertDialogBuilder.setMessage("GPS/Network is disabled in your device. Would you like to enable it?")
+                .setCancelable(false)
+                .setPositiveButton("Yes",
+                        new DialogInterface.OnClickListener(){
+                            public void onClick(DialogInterface dialog, int id){
+                                Intent callGPSSettingIntent = new Intent(
+                                        android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                                startActivity(callGPSSettingIntent);
+                            }
+                        });
+        alertDialogBuilder.setNegativeButton("Cancel",
+                new DialogInterface.OnClickListener(){
+                    public void onClick(DialogInterface dialog, int id){
+                        dialog.cancel();
+                    }
+                });
+        AlertDialog alert = alertDialogBuilder.create();
+        alert.show();
+    }
+
+
+
+
     class Registration extends AsyncTask<String,Void,String> {
+
 
         @Override
         protected String doInBackground(String... params) {
@@ -168,8 +253,15 @@ public class ContactDisplayActivity extends ActionBarActivity
                 if (gcm == null) {
                     gcm = GoogleCloudMessaging.getInstance(context);
                 }
-                regid = gcm.register("214619967549");
-                msg = "Device registered, registration ID=" + regid;
+
+                regId = gcm.register(Variables.projectNumber);
+
+                if(!regId.isEmpty()){
+                updateRegistrationId(regId);
+
+                }
+
+                msg = "Device registered, registration ID=" + regId;
 
             } catch (IOException ex) {
                 msg = "Error :" + ex.getMessage();
@@ -188,6 +280,18 @@ public class ContactDisplayActivity extends ActionBarActivity
             Toast.makeText(context,s,Toast.LENGTH_SHORT);
         }
     }
+    public void updateRegistrationId(String registrationId)
+    {
+        SharedPreferences.Editor editor = preferences.edit();
+        editor.putString("GCM",regId);
+        editor.apply();
+
+        Variables.gcmRegId = registrationId;
+        UpdateRegistration updateRegistration = new UpdateRegistration();
+        updateRegistration.execute();
+    }
+
+
 
     @Override
     public void onNavigationDrawerItemSelected(int position) {
