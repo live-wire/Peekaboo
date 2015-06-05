@@ -81,7 +81,7 @@ public class GcmIntentService extends IntentService {
         NotificationCompat.Builder mBuilder =
                 new NotificationCompat.Builder(this)
                         .setSmallIcon(R.drawable.drawer_shadow)
-                        .setContentTitle("GCM Notification")
+                        .setContentTitle("Peekaboo")
                         .setStyle(new NotificationCompat.BigTextStyle()
                                 .bigText(msg))
                         .setContentText(msg);

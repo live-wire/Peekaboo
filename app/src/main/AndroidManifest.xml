@@ -24,10 +24,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
 
-    <permission android:name="com.example.gcm.permission.C2D_MESSAGE"
+    <permission android:name="com.happyhours.www.gcm.permission.C2D_MESSAGE"
         android:protectionLevel="signature" />
-    <uses-permission android:name="com.example.gcm.permission.C2D_MESSAGE" />
-
+    <uses-permission android:name="com.happyhours.www.gcm.permission.C2D_MESSAGE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_launcher"
@@ -43,6 +43,7 @@
         <activity
             android:name=".MapsActivity"
             android:label="@string/title_activity_maps"
+            android:excludeFromRecents="true"
             android:configChanges="orientation|screenSize">
             <!--<intent-filter>-->
                 <!--<action android:name="android.intent.action.MAIN" />-->
@@ -59,6 +60,7 @@
 
         <!--Contact Activity set as Laucher activity-->
         <activity
+            android:excludeFromRecents="true"
             android:name=".ContactDisplayActivity"
             android:label="Peek-aa-booh"
             android:configChanges="orientation|screenSize">
@@ -69,6 +71,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+
 
         <receiver
             android:name="www.happyhours.com.peekaboo.GcmBroadcastReceiver"
@@ -85,6 +89,7 @@
         </receiver>
 
         <service android:name="www.happyhours.com.peekaboo.GcmIntentService" />
+        <service android:name="www.happyhours.com.peekaboo.LocationUpdateService"/>
     </application>
 
 </manifest>

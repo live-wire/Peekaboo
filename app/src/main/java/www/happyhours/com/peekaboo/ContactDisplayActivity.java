@@ -3,6 +3,8 @@ package www.happyhours.com.peekaboo;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.PendingIntent;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -31,6 +33,8 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.github.nkzawa.socketio.client.IO;
+import com.github.nkzawa.socketio.client.Socket;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.gcm.GoogleCloudMessaging;
@@ -59,6 +63,7 @@ import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -98,6 +103,18 @@ public class ContactDisplayActivity extends ActionBarActivity
     public Context context;
     public SharedPreferences preferences;
     public String regId;
+
+    public Socket mSocket;
+    /*{
+        try {
+            mSocket = IO.socket(Variables.CHAT_SERVER_URL);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }*/
+
+
+
     @Override
     public void onConnected(Bundle connectionHint) {
 
@@ -170,7 +187,13 @@ public class ContactDisplayActivity extends ActionBarActivity
             regId = gcmString;
         }
 
+        Intent mServiceIntent = new Intent(context, LocationUpdateService.class);
+        context.startService(mServiceIntent);
 
+
+
+       /* mSocket.connect();
+        mSocket.emit("add user", Variables.userLoggedIn);*/
     }
 
     public Location isGpsOn()
@@ -364,7 +387,9 @@ public class ContactDisplayActivity extends ActionBarActivity
         if(mRequestingLocationUpdates){
         UpdateUI ui = new UpdateUI();
 
-        ui.execute();}
+        ui.execute();
+
+        }
         else
         {
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
@@ -582,7 +607,7 @@ public class ContactDisplayActivity extends ActionBarActivity
                 HttpEntity httpEntity = response.getEntity();
                 String responseString = EntityUtils.toString(httpEntity);
                 mResponse = responseString;
-
+                //mSocket.emit("new message", json);
 
 
             } catch (ClientProtocolException e) {
@@ -646,7 +671,7 @@ public class ContactDisplayActivity extends ActionBarActivity
         @Override
         protected void onPostExecute(String s) {
             super.onPostExecute(s);
-            restartActivity();
+            //restartActivity();
         }
     }
 
